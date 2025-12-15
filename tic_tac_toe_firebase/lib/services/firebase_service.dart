@@ -3,12 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Save a match to Firestore
+  // Save a match to Firestore - ADD duration AND moves parameters
   Future<void> saveMatch({
     required String playerX,
     required String playerO,
     required String? winner,
     required List<List<String?>> board,
+    required int duration, // ← ADD THIS
+    required int moves, // ← ADD THIS
   }) async {
     try {
       await _firestore.collection('matches').add({
@@ -16,6 +18,8 @@ class FirebaseService {
         'playerO': playerO,
         'winner': winner,
         'board': _convertBoardToList(board),
+        'duration': duration, // ← ADD THIS
+        'moves': moves, // ← ADD THIS
         'timestamp': FieldValue.serverTimestamp(),
         'date': DateTime.now().toIso8601String(),
       });
@@ -24,7 +28,7 @@ class FirebaseService {
     }
   }
 
-  // Get all matches from Firestore
+  // Get all matches from Firestore - ADD duration AND moves
   Stream<List<Map<String, dynamic>>> getMatches() {
     return _firestore
         .collection('matches')
@@ -39,6 +43,8 @@ class FirebaseService {
               'playerO': data['playerO'] ?? '',
               'winner': data['winner'],
               'board': data['board'],
+              'duration': data['duration'] ?? 0, // ← ADD THIS
+              'moves': data['moves'] ?? 0, // ← ADD THIS
               'date': data['date'] ?? '',
             };
           }).toList();
