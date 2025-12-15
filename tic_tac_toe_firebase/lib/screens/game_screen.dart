@@ -14,20 +14,57 @@ class _GameScreenState extends State<GameScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   bool _resultDialogShown = false;
 
-  void _saveGameToFirebase(BuildContext context, GameProvider provider) async {
+  // ADD THESE VARIABLES FOR TIMESTAMP TRACKING
+  DateTime? _gameStartTime; // When game started
+  int _moveCount = 0; // Count moves
+  late GameProvider _provider; // Store provider reference
+
+  // ADD: Function to start tracking time
+  void _startGameTimer() {
+    setState(() {
+      _gameStartTime = DateTime.now();
+      _moveCount = 0;
+    });
+  }
+
+  // UPDATE: Modified saveGameToFirebase to include duration and moves
+  Future<void> _saveGameToFirebase(
+    BuildContext context,
+    GameProvider provider,
+  ) async {
     try {
+      // Calculate duration in seconds
+      final int duration;
+      if (_gameStartTime != null) {
+        final gameEndTime = DateTime.now();
+        duration = gameEndTime.difference(_gameStartTime!).inSeconds;
+      } else {
+        duration = 0; // Fallback if timer wasn't started
+      }
+
+      // Get moves count from provider if available, otherwise use _moveCount
+      final int moves;
+      if (provider.moveCount != null) {
+        moves = provider.moveCount!;
+      } else {
+        moves = _moveCount;
+      }
+
       await _firebaseService.saveMatch(
         playerX: provider.playerX,
         playerO: provider.playerO,
         winner: provider.winner,
         board: provider.board,
+        duration: duration, // ADD THIS
+        moves: moves, // ADD THIS
       );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Game saved!'),
+          SnackBar(
+            content: Text('Game saved! Time: ${duration}s, Moves: $moves'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -44,9 +81,14 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  // UPDATE: Modified handleRestartGame to reset timer
   void _handleRestartGame(GameProvider provider) {
     provider.resetGame();
     _resultDialogShown = false;
+
+    // Reset timer and move count
+    _startGameTimer();
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Game restarted!'),
@@ -56,6 +98,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  // UPDATE: Modified handleGoHome to save with timestamp
   void _handleGoHome(BuildContext context, GameProvider provider) {
     if (provider.gameOver) {
       _saveGameToFirebase(context, provider);
@@ -65,21 +108,178 @@ class _GameScreenState extends State<GameScreen> {
     _resultDialogShown = false;
   }
 
-  void _handleSwitchPlayers(GameProvider provider) {
-    provider.switchPlayers();
-    _resultDialogShown = false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Players switched! X is now O and O is now X'),
-        backgroundColor: Colors.deepPurple,
-        duration: Duration(seconds: 1),
+  // ADD: Function to show game time in the dialog
+  void _showResultDialogWithTime(GameProvider provider) {
+    final int duration;
+    if (_gameStartTime != null) {
+      final gameEndTime = DateTime.now();
+      duration = gameEndTime.difference(_gameStartTime!).inSeconds;
+    } else {
+      duration = 0;
+    }
+
+    final int moves;
+    if (provider.moveCount != null) {
+      moves = provider.moveCount!;
+    } else {
+      moves = _moveCount;
+    }
+
+    _resultDialogShown = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Column(
+          children: [
+            Icon(
+              provider.winner == null ? Icons.handshake : Icons.emoji_events,
+              size: 50,
+              color: provider.winner == null
+                  ? Colors.grey
+                  : provider.winner == 'X'
+                  ? Colors.blue
+                  : Colors.red,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              provider.winner == null
+                  ? 'It\'s a Tie!'
+                  : '${provider.winnerName} Wins! 🎉',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: provider.winner == null
+                    ? Colors.grey
+                    : provider.winner == 'X'
+                    ? Colors.blue
+                    : Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              provider.winner == null
+                  ? 'The match ended in a tie.'
+                  : 'Congratulations to ${provider.winnerName} for winning the game!',
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            // ADD: Show game time and moves
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      Icon(Icons.timer, color: Colors.deepPurple.shade600),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$duration sec',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Text('Time', style: TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      Icon(Icons.touch_app, color: Colors.blue.shade600),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$moves',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Text('Moves', style: TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Restart Button
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleRestartGame(provider);
+            },
+            icon: const Icon(Icons.refresh, size: 20),
+            label: const Text('Restart'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.orange.shade700,
+            ),
+          ),
+
+          // Switch Players Button
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleSwitchPlayers(provider);
+            },
+            icon: const Icon(Icons.swap_horiz, size: 20),
+            label: const Text('Switch Players'),
+            style: TextButton.styleFrom(foregroundColor: Colors.deepPurple),
+          ),
+
+          // Home Button
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleGoHome(context, provider);
+            },
+            icon: const Icon(Icons.home, size: 20),
+            label: const Text('Home'),
+            style: TextButton.styleFrom(foregroundColor: Colors.green.shade700),
+          ),
+        ],
       ),
     );
   }
 
+  // UPDATE: Track moves when a move is made
+  void _onCellTapped(int row, int col, GameProvider provider) {
+    if (!provider.gameOver) {
+      // Increment move count before making move
+      setState(() {
+        _moveCount++;
+      });
+
+      provider.makeMove(row, col);
+
+      if (provider.gameOver) {
+        _saveGameToFirebase(context, provider);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Start timer when screen loads
+    _startGameTimer();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<GameProvider>(context);
+    _provider = Provider.of<GameProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final boardSize = screenWidth < screenHeight
@@ -87,95 +287,22 @@ class _GameScreenState extends State<GameScreen> {
         : screenHeight * 0.6;
 
     // Show result dialog once when game ends
-    if (provider.gameOver && !_resultDialogShown) {
+    if (_provider.gameOver && !_resultDialogShown) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _resultDialogShown = true;
-        showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            title: Column(
-              children: [
-                Icon(
-                  provider.winner == null
-                      ? Icons.handshake
-                      : Icons.emoji_events,
-                  size: 50,
-                  color: provider.winner == null
-                      ? Colors.grey
-                      : provider.winner == 'X'
-                      ? Colors.blue
-                      : Colors.red,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  provider.winner == null
-                      ? 'It\'s a Tie!'
-                      : '${provider.winnerName} Wins! 🎉',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: provider.winner == null
-                        ? Colors.grey
-                        : provider.winner == 'X'
-                        ? Colors.blue
-                        : Colors.red,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            content: Text(
-              provider.winner == null
-                  ? 'The match ended in a tie.'
-                  : 'Congratulations to ${provider.winnerName} for winning the game!',
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            actions: [
-              // Restart Button
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _handleRestartGame(provider);
-                },
-                icon: const Icon(Icons.refresh, size: 20),
-                label: const Text('Restart'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.orange.shade700,
-                ),
-              ),
-
-              // Switch Players Button
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _handleSwitchPlayers(provider);
-                },
-                icon: const Icon(Icons.swap_horiz, size: 20),
-                label: const Text('Switch Players'),
-                style: TextButton.styleFrom(foregroundColor: Colors.deepPurple),
-              ),
-
-              // Home Button
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _handleGoHome(context, provider);
-                },
-                icon: const Icon(Icons.home, size: 20),
-                label: const Text('Home'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.green.shade700,
-                ),
-              ),
-            ],
-          ),
-        );
+        _showResultDialogWithTime(_provider);
       });
+    }
+
+    // Calculate elapsed time for display
+    final String elapsedTime;
+    if (_gameStartTime != null) {
+      final currentDuration = DateTime.now().difference(_gameStartTime!);
+      final seconds = currentDuration.inSeconds;
+      elapsedTime = seconds < 60
+          ? '$seconds sec'
+          : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    } else {
+      elapsedTime = '0 sec';
     }
 
     return Scaffold(
@@ -192,7 +319,7 @@ class _GameScreenState extends State<GameScreen> {
           color: Colors.white,
           child: Column(
             children: [
-              // Top Status Row
+              // Top Status Row - ADDED TIME AND MOVES DISPLAY
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -206,16 +333,16 @@ class _GameScreenState extends State<GameScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            provider.gameOver
-                                ? (provider.winner == null
+                            _provider.gameOver
+                                ? (_provider.winner == null
                                       ? 'Game Tied!'
-                                      : '${provider.winnerName} Wins!')
-                                : '${provider.currentPlayerName}\'s Turn',
+                                      : '${_provider.winnerName} Wins!')
+                                : '${_provider.currentPlayerName}\'s Turn',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: provider.gameOver
-                                  ? (provider.winner == null
+                              color: _provider.gameOver
+                                  ? (_provider.winner == null
                                         ? Colors.grey
                                         : Colors.deepPurple)
                                   : Colors.blue,
@@ -224,7 +351,7 @@ class _GameScreenState extends State<GameScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${provider.playerX} (X)  vs  ${provider.playerO} (O)',
+                            '${_provider.playerX} (X)  vs  ${_provider.playerO} (O)',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade700,
@@ -234,52 +361,51 @@ class _GameScreenState extends State<GameScreen> {
                         ],
                       ),
                     ),
-                    // Game Status Indicator
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: provider.gameOver
-                            ? (provider.winner == null
-                                  ? Colors.grey.shade200
-                                  : provider.winner == 'X'
-                                  ? Colors.blue.shade50
-                                  : Colors.red.shade50)
-                            : Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: provider.gameOver
-                              ? (provider.winner == null
-                                    ? Colors.grey
-                                    : provider.winner == 'X'
-                                    ? Colors.blue
-                                    : Colors.red)
-                              : Colors.blue,
-                          width: 1,
+
+                    // ADD: Game time and moves display
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.timer,
+                              size: 14,
+                              color: Colors.deepPurple,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              elapsedTime,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: Text(
-                        provider.gameOver ? 'Game Over' : 'Playing',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: provider.gameOver
-                              ? (provider.winner == null
-                                    ? Colors.grey
-                                    : provider.winner == 'X'
-                                    ? Colors.blue
-                                    : Colors.red)
-                              : Colors.blue,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.touch_app, size: 14, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_moveCount moves',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              // Game Board (responsive) inside Expanded
+              // Game Board
               Expanded(
                 child: Center(
                   child: AspectRatio(
@@ -308,25 +434,19 @@ class _GameScreenState extends State<GameScreen> {
                           int row = index ~/ 3;
                           int col = index % 3;
                           return GestureDetector(
-                            onTap: () {
-                              if (!provider.gameOver) {
-                                provider.makeMove(row, col);
-                                if (provider.gameOver) {
-                                  _saveGameToFirebase(context, provider);
-                                }
-                              }
-                            },
+                            onTap: () =>
+                                _onCellTapped(row, col, _provider), // UPDATED
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: Center(
                                 child: Text(
-                                  provider.board[row][col] ?? '',
+                                  _provider.board[row][col] ?? '',
                                   style: TextStyle(
                                     fontSize: boardSize * 0.12,
                                     fontWeight: FontWeight.bold,
-                                    color: provider.board[row][col] == 'X'
+                                    color: _provider.board[row][col] == 'X'
                                         ? Colors.blue
                                         : Colors.red,
                                   ),
@@ -341,11 +461,11 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
 
-              // Buttons Section - Two Rows for better organization
+              // Buttons Section
               Column(
                 children: [
-                  // First Row: Switch Players Button (only when game is over)
-                  if (provider.gameOver)
+                  // Switch Players Button
+                  if (_provider.gameOver)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -354,7 +474,7 @@ class _GameScreenState extends State<GameScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => _handleSwitchPlayers(provider),
+                          onPressed: () => _handleSwitchPlayers(_provider),
                           icon: const Icon(Icons.swap_horiz, size: 20),
                           label: const Text('Switch Players & Restart'),
                           style: ElevatedButton.styleFrom(
@@ -369,7 +489,7 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
 
-                  // Second Row: Restart and Home Buttons
+                  // Restart and Home Buttons
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -379,7 +499,7 @@ class _GameScreenState extends State<GameScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () => _handleRestartGame(provider),
+                            onPressed: () => _handleRestartGame(_provider),
                             icon: const Icon(Icons.refresh, size: 20),
                             label: const Text('Restart'),
                             style: ElevatedButton.styleFrom(
@@ -395,7 +515,7 @@ class _GameScreenState extends State<GameScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () => _handleGoHome(context, provider),
+                            onPressed: () => _handleGoHome(context, _provider),
                             icon: const Icon(Icons.home, size: 20),
                             label: const Text('Home'),
                             style: ElevatedButton.styleFrom(
@@ -416,6 +536,22 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ADD: Missing switch players function
+  void _handleSwitchPlayers(GameProvider provider) {
+    provider.switchPlayers();
+    _resultDialogShown = false;
+    // Also reset timer for new game
+    _startGameTimer();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Players switched! X is now O and O is now X'),
+        backgroundColor: Colors.deepPurple,
+        duration: Duration(seconds: 1),
       ),
     );
   }

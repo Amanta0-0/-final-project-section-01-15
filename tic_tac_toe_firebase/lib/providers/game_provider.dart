@@ -21,6 +21,18 @@ class GameProvider extends ChangeNotifier {
   int oWins = 0;
   int ties = 0;
 
+  // ADD: Move count getter
+  int? get moveCount {
+    // Calculate moves from board
+    int count = 0;
+    for (var row in board) {
+      for (var cell in row) {
+        if (cell != null) count++;
+      }
+    }
+    return count;
+  }
+
   // Make a move
   void makeMove(int row, int col) {
     if (gameOver || board[row][col] != null) return;
@@ -150,5 +162,22 @@ class GameProvider extends ChangeNotifier {
     return winner == 'X' ? playerX : playerO;
   }
 
-  void switchPlayers() {}
+  // ADD: Fix the switchPlayers method (currently empty)
+  void switchPlayers() {
+    // Swap player names
+    final temp = playerX;
+    playerX = playerO;
+    playerO = temp;
+
+    // Swap scores if needed
+    if (winner == 'X') {
+      winner = 'O';
+    } else if (winner == 'O') {
+      winner = 'X';
+    }
+
+    // Reset the game
+    resetGame();
+    notifyListeners();
+  }
 }
