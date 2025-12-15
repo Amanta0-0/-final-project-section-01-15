@@ -150,5 +150,5 @@ class GameProvider extends ChangeNotifier {
     return winner == 'X' ? playerX : playerO;
   }
 
-  void switchPlayers() {}
+  void switchPlayers() {}
 }

@@ -95,7 +95,7 @@ class ScoreboardWidget extends StatelessWidget {
             ),
           ),
         ),
-      ],
-    );
-  }
+      ],
+    );
+  }
 }
