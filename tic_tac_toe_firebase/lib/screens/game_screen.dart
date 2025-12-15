@@ -19,11 +19,15 @@ class _GameScreenState extends State<GameScreen> {
   int _moveCount = 0; // Count moves
   late GameProvider _provider; // Store provider reference
 
+  // ✅ ADD THIS VARIABLE TO PREVENT DUPLICATE SAVES
+  bool _gameAlreadySaved = false;
+
   // ADD: Function to start tracking time
   void _startGameTimer() {
     setState(() {
       _gameStartTime = DateTime.now();
       _moveCount = 0;
+      _gameAlreadySaved = false; // ✅ RESET SAVE FLAG
     });
   }
 
@@ -32,6 +36,12 @@ class _GameScreenState extends State<GameScreen> {
     BuildContext context,
     GameProvider provider,
   ) async {
+    // ✅ ADD THIS CHECK TO PREVENT DUPLICATE SAVES
+    if (_gameAlreadySaved) {
+      print('⚠️ Game already saved, skipping duplicate save');
+      return;
+    }
+
     try {
       // Calculate duration in seconds
       final int duration;
@@ -59,6 +69,9 @@ class _GameScreenState extends State<GameScreen> {
         moves: moves, // ADD THIS
       );
 
+      // ✅ MARK AS SAVED
+      _gameAlreadySaved = true;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -69,6 +82,9 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     } catch (e) {
+      // ✅ RESET FLAG ON ERROR
+      _gameAlreadySaved = false;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -98,11 +114,9 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  // UPDATE: Modified handleGoHome to save with timestamp
+  // FIXED: Modified handleGoHome - REMOVED the save call
   void _handleGoHome(BuildContext context, GameProvider provider) {
-    if (provider.gameOver) {
-      _saveGameToFirebase(context, provider);
-    }
+    // ❌ REMOVED SAVE CALL - Game is already saved when dialog appears
     provider.resetGame();
     Navigator.pop(context);
     _resultDialogShown = false;
@@ -252,6 +266,9 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
+
+    // ✅ SAVE THE GAME HERE - ONLY ONCE WHEN DIALOG SHOWS
+    _saveGameToFirebase(context, provider);
   }
 
   // UPDATE: Track moves when a move is made
@@ -263,10 +280,6 @@ class _GameScreenState extends State<GameScreen> {
       });
 
       provider.makeMove(row, col);
-
-      if (provider.gameOver) {
-        _saveGameToFirebase(context, provider);
-      }
     }
   }
 
@@ -311,7 +324,10 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: Colors.deepPurple,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // ❌ REMOVED SAVE CALL - Don't save when using back button
+            Navigator.pop(context);
+          },
         ),
       ),
       body: SafeArea(
@@ -434,8 +450,7 @@ class _GameScreenState extends State<GameScreen> {
                           int row = index ~/ 3;
                           int col = index % 3;
                           return GestureDetector(
-                            onTap: () =>
-                                _onCellTapped(row, col, _provider), // UPDATED
+                            onTap: () => _onCellTapped(row, col, _provider),
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),

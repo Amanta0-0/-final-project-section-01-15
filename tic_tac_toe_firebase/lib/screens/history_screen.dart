@@ -114,6 +114,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  // Helper function to format duration
+  String _formatDuration(int seconds) {
+    if (seconds < 60) {
+      return '$seconds sec';
+    }
+
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+
+    if (remainingSeconds == 0) {
+      return '$minutes min';
+    }
+
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,325 +289,505 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   );
                 }
 
-                // List of matches - THIS IS THE CODE YOU WANTED TO ADD!
-                return ListView.builder(
-                  padding: const EdgeInsets.all(10),
-                  itemCount: matches.length,
-                  itemBuilder: (context, index) {
-                    final match = matches[index];
-                    final boardList = match['board'] as List<dynamic>;
-                    final flatBoard = boardList.cast<String?>();
+                // Calculate total statistics
+                int totalGames = matches.length;
+                int xWins = matches.where((m) => m['winner'] == 'X').length;
+                int oWins = matches.where((m) => m['winner'] == 'O').length;
+                int ties = matches
+                    .where((m) => m['winner'] == null || m['winner'] == 'Tie')
+                    .length;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(15),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Shows game number
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepPurple.shade50,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    'Game ${index + 1}', // ← Game number
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.deepPurple,
-                                    ),
-                                  ),
+                // Calculate average duration
+                int totalDuration = 0;
+                int validDurationGames = 0;
+                for (var match in matches) {
+                  if (match['duration'] != null && match['duration'] is int) {
+                    totalDuration += match['duration'] as int;
+                    validDurationGames++;
+                  }
+                }
+                int averageDuration = validDurationGames > 0
+                    ? totalDuration ~/ validDurationGames
+                    : 0;
+
+                // List of matches
+                return Column(
+                  children: [
+                    // Statistics Card
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Card(
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Column(
+                            children: [
+                              const Text(
+                                '📊 Game Statistics',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
                                 ),
-                                Text(
-                                  _formatDate(match['date']), // ← TIMESTAMP
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Shows players
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Row(
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          match['playerX'],
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue,
+                                  _buildStatItem(
+                                    'Total Games',
+                                    totalGames.toString(),
+                                    Icons.games,
+                                  ),
+                                  _buildStatItem(
+                                    'X Wins',
+                                    xWins.toString(),
+                                    Icons.circle,
+                                    color: Colors.blue,
+                                  ),
+                                  _buildStatItem(
+                                    'O Wins',
+                                    oWins.toString(),
+                                    Icons.close,
+                                    color: Colors.red,
+                                  ),
+                                  _buildStatItem(
+                                    'Ties',
+                                    ties.toString(),
+                                    Icons.handshake,
+                                    color: Colors.grey,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              if (averageDuration > 0)
+                                Text(
+                                  'Average Game Time: ${_formatDuration(averageDuration)}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.deepPurple,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Matches List
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(10),
+                        itemCount: matches.length,
+                        itemBuilder: (context, index) {
+                          final match = matches[index];
+                          final boardList = match['board'] as List<dynamic>;
+                          final flatBoard = boardList.cast<String?>();
+                          final duration = match['duration'] as int?;
+
+                          // Get moves count (optional)
+                          final moves = match['moves'] as int?;
+
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(15),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Game number and date
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
                                         ),
-                                        const Text(
-                                          'Player X',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
+                                        child: Text(
+                                          'Game ${index + 1}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Colors.deepPurple,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatDate(match['date']),
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Game duration and moves
+                                  if (duration != null || moves != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          if (duration != null)
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.timer,
+                                                  size: 16,
+                                                  color: Colors
+                                                      .deepPurple
+                                                      .shade600,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  _formatDuration(duration),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors
+                                                        .deepPurple
+                                                        .shade700,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                              ],
+                                            ),
+                                          if (moves != null)
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.touch_app,
+                                                  size: 16,
+                                                  color: Colors.blue.shade600,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '$moves moves',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.blue.shade700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+
+                                  // Players
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Text(
+                                                match['playerX'],
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blue,
+                                                ),
+                                              ),
+                                              const Text(
+                                                'Player X',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.deepPurple.shade100,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'VS',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.deepPurple,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Text(
+                                                match['playerO'],
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                              const Text(
+                                                'Player O',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Result
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
+                                      horizontal: 15,
+                                      vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.deepPurple.shade100,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      'VS',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.deepPurple,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          match['playerO'],
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                        const Text(
-                                          'Player O',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Shows result
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 15,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: match['winner'] == null
-                                    ? Colors.grey.withOpacity(0.2)
-                                    : match['winner'] == 'X'
-                                    ? Colors.blue.withOpacity(0.2)
-                                    : Colors.red.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: match['winner'] == null
-                                      ? Colors.grey
-                                      : match['winner'] == 'X'
-                                      ? Colors.blue
-                                      : Colors.red,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    match['winner'] == null
-                                        ? Icons.handshake
-                                        : Icons.emoji_events,
-                                    size: 18,
-                                    color: match['winner'] == null
-                                        ? Colors.grey
-                                        : match['winner'] == 'X'
-                                        ? Colors.blue
-                                        : Colors.red,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    match['winner'] == null
-                                        ? 'RESULT: TIE'
-                                        : 'WINNER: ${match['winner'] == 'X' ? match['playerX'] : match['playerO']} (${match['winner']})', // ← Shows winner
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: match['winner'] == null
-                                          ? Colors.grey
+                                      color:
+                                          match['winner'] == null ||
+                                              match['winner'] == 'Tie'
+                                          ? Colors.grey.withOpacity(0.2)
                                           : match['winner'] == 'X'
-                                          ? Colors.blue
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 15),
-
-                            // Board preview text
-                            const Text(
-                              'Final Board:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Shows board preview (3x3 grid)
-                            Container(
-                              width: 150,
-                              height: 150,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.withOpacity(0.1),
-                                    blurRadius: 5,
-                                  ),
-                                ],
-                              ),
-                              child: GridView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 3, // ← 3x3 grid
-                                    ),
-                                itemCount: 9,
-                                itemBuilder: (context, gridIndex) {
-                                  int listIndex = gridIndex;
-                                  return Container(
-                                    decoration: BoxDecoration(
+                                          ? Colors.blue.withOpacity(0.2)
+                                          : Colors.red.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: Colors.grey.shade300,
+                                        color:
+                                            match['winner'] == null ||
+                                                match['winner'] == 'Tie'
+                                            ? Colors.grey
+                                            : match['winner'] == 'X'
+                                            ? Colors.blue
+                                            : Colors.red,
+                                        width: 1,
                                       ),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        flatBoard[listIndex] ?? '',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: flatBoard[listIndex] == 'X'
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          match['winner'] == null ||
+                                                  match['winner'] == 'Tie'
+                                              ? Icons.handshake
+                                              : Icons.emoji_events,
+                                          size: 18,
+                                          color:
+                                              match['winner'] == null ||
+                                                  match['winner'] == 'Tie'
+                                              ? Colors.grey
+                                              : match['winner'] == 'X'
                                               ? Colors.blue
                                               : Colors.red,
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
-                            const SizedBox(height: 15),
-
-                            // Delete button
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  // Show confirmation dialog
-                                  bool? confirm = await showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Delete Game'),
-                                      content: const Text(
-                                        'Are you sure you want to delete this game?',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                            foregroundColor: Colors.white,
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          match['winner'] == null ||
+                                                  match['winner'] == 'Tie'
+                                              ? 'RESULT: TIE'
+                                              : 'WINNER: ${match['winner'] == 'X' ? match['playerX'] : match['playerO']} (${match['winner']})',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color:
+                                                match['winner'] == null ||
+                                                    match['winner'] == 'Tie'
+                                                ? Colors.grey
+                                                : match['winner'] == 'X'
+                                                ? Colors.blue
+                                                : Colors.red,
                                           ),
-                                          child: const Text('DELETE'),
                                         ),
                                       ],
                                     ),
-                                  );
+                                  ),
 
-                                  if (confirm == true) {
-                                    // Show immediate feedback
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Deleting game...'),
-                                        backgroundColor: Colors.orange,
-                                        duration: Duration(seconds: 1),
+                                  const SizedBox(height: 15),
+
+                                  // Board preview
+                                  const Text(
+                                    'Final Board:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  Container(
+                                    width: 150,
+                                    height: 150,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
                                       ),
-                                    );
-
-                                    // Fire and forget
-                                    _firebaseService.deleteMatch(match['id']);
-
-                                    // Show immediate success
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Game deleted'),
-                                          backgroundColor: Colors.green,
-                                          duration: Duration(seconds: 1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withOpacity(0.1),
+                                          blurRadius: 5,
                                         ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 16,
-                                ),
-                                label: const Text('Delete'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                ),
+                                      ],
+                                    ),
+                                    child: GridView.builder(
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 3,
+                                          ),
+                                      itemCount: 9,
+                                      itemBuilder: (context, gridIndex) {
+                                        int listIndex = gridIndex;
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              flatBoard[listIndex] ?? '',
+                                              style: TextStyle(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                                color:
+                                                    flatBoard[listIndex] == 'X'
+                                                    ? Colors.blue
+                                                    : Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 15),
+
+                                  // Delete button
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        // Show confirmation dialog
+                                        bool? confirm = await showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Delete Game'),
+                                            content: const Text(
+                                              'Are you sure you want to delete this game?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: const Text('DELETE'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          // Show immediate feedback
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Deleting game...'),
+                                              backgroundColor: Colors.orange,
+                                              duration: Duration(seconds: 1),
+                                            ),
+                                          );
+
+                                          // Fire and forget
+                                          _firebaseService.deleteMatch(
+                                            match['id'],
+                                          );
+
+                                          // Show immediate success
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Game deleted'),
+                                                backgroundColor: Colors.green,
+                                                duration: Duration(seconds: 1),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 16,
+                                      ),
+                                      label: const Text('Delete'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                        side: const BorderSide(
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             );
@@ -609,5 +805,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
     } catch (e) {
       return dateString;
     }
+  }
+
+  // Helper widget for statistics
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon, {
+    Color? color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (color ?? Colors.deepPurple).withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 20, color: color ?? Colors.deepPurple),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color ?? Colors.deepPurple,
+          ),
+        ),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
+    );
   }
 }
