@@ -38,7 +38,7 @@ class _GameScreenState extends State<GameScreen> {
   ) async {
     // ✅ ADD THIS CHECK TO PREVENT DUPLICATE SAVES
     if (_gameAlreadySaved) {
-      print('⚠️ Game already saved, skipping duplicate save');
+      debugPrint('⚠️ Game already saved, skipping duplicate save');
       return;
     }
 
@@ -69,31 +69,32 @@ class _GameScreenState extends State<GameScreen> {
         moves: moves, // ADD THIS
       );
 
+      if (!mounted) return;
+
       // ✅ MARK AS SAVED
       _gameAlreadySaved = true;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Game saved! Time: ${duration}s, Moves: $moves'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Game saved! Time: ${duration}s, Moves: $moves'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       // ✅ RESET FLAG ON ERROR
       _gameAlreadySaved = false;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -434,7 +435,7 @@ class _GameScreenState extends State<GameScreen> {
                         border: Border.all(color: Colors.deepPurple, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.15),
+                            color: Colors.grey.withAlpha((0.15 * 255).round()),
                             blurRadius: 8,
                           ),
                         ],

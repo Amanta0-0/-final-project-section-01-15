@@ -26,6 +26,7 @@ class _AuthScreenState extends State<AuthScreen> {
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text.trim(),
     );
+    if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(
         context,
@@ -42,6 +43,7 @@ class _AuthScreenState extends State<AuthScreen> {
       lastName: 'Last',
       phoneNumber: '0000000000',
     );
+    if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(
         context,
@@ -82,7 +84,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withAlpha((0.1 * 255).round()),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
