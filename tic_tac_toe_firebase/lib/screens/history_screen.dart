@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:tic_tac_toe_firebase/services/firebase_service.dart';
 
@@ -23,6 +25,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // Function to handle Clear All action - IMMEDIATE
   void _handleClearAll() async {
     final matches = await _initialMatchesFuture;
+    if (!mounted) return;
 
     if (matches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,8 +48,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -580,10 +583,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       color:
                                           match['winner'] == null ||
                                               match['winner'] == 'Tie'
-                                          ? Colors.grey.withOpacity(0.2)
+                                          ? Colors.grey.withAlpha(
+                                              (0.2 * 255).round(),
+                                            )
                                           : match['winner'] == 'X'
-                                          ? Colors.blue.withOpacity(0.2)
-                                          : Colors.red.withOpacity(0.2),
+                                          ? Colors.grey.withAlpha(
+                                              (0.2 * 255).round(),
+                                            )
+                                          : Colors.red.withAlpha(
+                                              (0.2 * 255).round(),
+                                            ),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color:
@@ -659,7 +668,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.grey.withOpacity(0.1),
+                                          color: Colors.grey.withAlpha(
+                                            (0.1 * 255).round(),
+                                          ),
                                           blurRadius: 5,
                                         ),
                                       ],
@@ -736,6 +747,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                         );
 
+                                        if (!mounted) return;
+
                                         if (confirm == true) {
                                           // Show immediate feedback
                                           ScaffoldMessenger.of(
@@ -754,17 +767,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           );
 
                                           // Show immediate success
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('Game deleted'),
-                                                backgroundColor: Colors.green,
-                                                duration: Duration(seconds: 1),
-                                              ),
-                                            );
-                                          }
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Game deleted'),
+                                              backgroundColor: Colors.green,
+                                              duration: Duration(seconds: 1),
+                                            ),
+                                          );
                                         }
                                       },
                                       icon: const Icon(
@@ -819,7 +830,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: (color ?? Colors.deepPurple).withOpacity(0.1),
+            color: (color ?? Colors.deepPurple).withAlpha((0.1 * 255).round()),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 20, color: color ?? Colors.deepPurple),

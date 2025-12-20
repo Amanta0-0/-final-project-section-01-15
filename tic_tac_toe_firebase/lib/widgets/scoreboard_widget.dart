@@ -80,7 +80,7 @@ class ScoreboardWidget extends StatelessWidget {
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withAlpha((0.1 * 255).round()),
             border: Border.all(color: color),
             borderRadius: BorderRadius.circular(30),
           ),

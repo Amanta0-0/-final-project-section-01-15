@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         elevation: 4,
-        shadowColor: Colors.deepPurple.withOpacity(0.3),
+        shadowColor: Colors.deepPurple.withAlpha((0.3 * 255).round()),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withAlpha((0.1 * 255).round()),
                         blurRadius: 10,
                         spreadRadius: 2,
                       ),
@@ -179,7 +179,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 3,
-                    shadowColor: Colors.deepPurple.withOpacity(0.3),
+                    shadowColor: Colors.deepPurple.withAlpha(
+                      (0.3 * 255).round(),
+                    ),
                   ),
                   child: const Text(
                     'Start Game',
@@ -207,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 3,
-                    shadowColor: Colors.grey.withOpacity(0.3),
+                    shadowColor: Colors.grey.withAlpha((0.3 * 255).round()),
                   ),
                   child: const Text(
                     'View History',
